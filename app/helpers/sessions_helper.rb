@@ -35,6 +35,15 @@ module SessionsHelper
     @_current_user = session[:current_user_id] = nil
   end
   
+  def authenticate
+    deny_access unless signed_in?
+  end
+
+  def deny_access
+    store_location
+    redirect_to signin_path, :notice => "Please sign in to access this page."
+  end
+  
   private
   
     def store_location

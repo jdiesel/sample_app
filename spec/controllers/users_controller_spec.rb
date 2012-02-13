@@ -16,7 +16,7 @@ describe UsersController do
     describe "for signed-in users" do
 
       before(:each) do
-        @user = test_sign_in(Factory(:user))
+        @user = test_sign_in(Factory(:user, :admin => false))
         second = Factory(:user, :name => "Bob", :email => "another@example.com")
         third  = Factory(:user, :name => "Ben", :email => "another@example.net")
 
@@ -44,6 +44,12 @@ describe UsersController do
         end
       end
       
+      it "should not show delete link as a non-admin user" do
+        get :index
+        response.should_not have_selector("a",  :href => "/users/5",
+                                                :content => "delete")
+      end
+      
       it "should paginate users" do
         get :index
         response.should have_selector("div.pagination")
@@ -53,6 +59,26 @@ describe UsersController do
         response.should have_selector("a", :href => "/users?page=2",
                                            :content => "Next")
       end
+    end
+    
+    describe "for admin users" do
+      
+      before(:each) do
+        @user = test_sign_in(Factory(:user, :admin => true))
+        second = Factory(:user, :name => "Bob", :email => "another@example.com")
+        third  = Factory(:user, :name => "Ben", :email => "another@example.net")
+
+        @users = [@user, second, third]
+        30.times do
+          @users << Factory(:user, :name => Factory.next(:name),
+                                   :email => Factory.next(:email))
+        end
+      end
+
+      it "should show delete link as an admin user" do
+        get :index
+        response.should have_selector("a", :content => "delete")
+      end    
     end
   end
 
@@ -71,7 +97,7 @@ describe UsersController do
        get :show, :id => @user
        assigns(:user).should == @user
      end
-     
+ 
      it "should have the right title" do
        get :show, :id => @user
        response.should have_selector("title", :content => @user.name)
@@ -85,6 +111,14 @@ describe UsersController do
      it "should have a profile image" do
        get :show, :id => @user
        response.should have_selector("h1>img", :class => "gravatar")
+     end
+ 
+     it "should show the user's microposts" do
+       mp1 = Factory(:micropost, :user => @user, :content => "Foo bar")
+       mp2 = Factory(:micropost, :user => @user, :content => "Baz quux")
+       get :show, :id => @user
+       response.should have_selector("span.content", :content => mp1.content)
+       response.should have_selector("span.content", :content => mp2.content)
      end
   end
   
@@ -311,7 +345,7 @@ describe UsersController do
         response.should redirect_to(root_path)
       end
     end
-
+    
     describe "as an admin user" do
 
       before(:each) do
@@ -324,11 +358,18 @@ describe UsersController do
           delete :destroy, :id => @user
         end.should change(User, :count).by(-1)
       end
-
+      
+      it "should not destroy the admin" do
+        @user = Factory(:user, :email => "admin2@example.com", :admin => true)
+        delete :destroy, :id => @user
+        response.should redirect_to(users_path)
+      end
+      
       it "should redirect to the users page" do
         delete :destroy, :id => @user
         response.should redirect_to(users_path)
       end
+       
     end
   end
 end
